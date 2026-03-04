@@ -1,12 +1,18 @@
+# 1. Kredensial Database
 apiVersion: v1
 kind: Secret
 metadata:
   name: identity-db-secret
 type: Opaque
 data:
+  # Hasil echo -n "admin" | base64
   POSTGRES_USER: YWRtaW4=
+  # Hasil echo -n "rahasia123" | base64
   POSTGRES_PASSWORD: cmFoYXNpYTEyMw==
 
+---
+
+# 2. Akses Jaringan Internal Cluster
 apiVersion: v1
 kind: Service
 metadata:
@@ -17,8 +23,11 @@ spec:
   ports:
     - protocol: TCP
       port: 5432
-  clusterIP: None # Kita gunakan Headless Service untuk StatefulSet
+  clusterIP: None # Headless service untuk StatefulSet
 
+---
+
+# 3. Unit Utama Database & Penyimpanan Data
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -37,14 +46,24 @@ spec:
       containers:
       - name: postgres
         image: postgres:15-alpine
-        envFrom:
-        - secretRef:
-            name: identity-db-secret
+        env:
+          # Mapping dari Secret ke Environment Variable Postgres
+          - name: POSTGRES_USER
+            valueFrom:
+              secretKeyRef:
+                name: identity-db-secret
+                key: POSTGRES_USER
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: identity-db-secret
+                key: POSTGRES_PASSWORD
         ports:
         - containerPort: 5432
         volumeMounts:
         - name: pgdata
           mountPath: /var/lib/postgresql/data
+  # Template untuk membuat Disk (PVC) secara otomatis
   volumeClaimTemplates:
   - metadata:
       name: pgdata
