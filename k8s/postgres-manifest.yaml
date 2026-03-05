@@ -12,18 +12,20 @@ data:
 
 ---
 
-# 2. Akses Jaringan Internal Cluster
+# 2. Akses Jaringan (Lokal & Internal Cluster)
 apiVersion: v1
 kind: Service
 metadata:
   name: identity-db-service
 spec:
+  type: NodePort # Ubah dari ClusterIP/None menjadi NodePort
   selector:
     app: identity-db
   ports:
     - protocol: TCP
-      port: 5432
-  clusterIP: None # Headless service untuk StatefulSet
+      port: 5432       # Port di dalam cluster
+      targetPort: 5432 # Port di dalam container
+      nodePort: 30432  # Port yang bisa diakses dari laptop (bebas pilih 30000-32767)
 
 ---
 
