@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: identity-service
+  template:
+    metadata:
+      labels:
+        app: identity-service
+    spec:
+      containers:
+      - name: identity-app
+        image: alisaidsm/identity-service-tumbaz:latest # Sesuaikan tag jika bukan latest
+        ports:
+        - containerPort: 3000
+        env:
+          # Host database merujuk pada nama Service database yang kita buat sebelumnya
+          - name: DB_HOST
+            value: "identity-db-service"
+          - name: DB_PORT
+            value: "5432"
+          # Mengambil username dan password dari Secret yang sudah ada
+          - name: DB_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: identity-db-secret
+                key: POSTGRES_USER
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: identity-db-secret
+                key: POSTGRES_PASSWORD
+          - name: DB_NAME
+            value: "postgres" # Default database di image postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-service
+spec:
+  selector:
+    app: identity-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP
