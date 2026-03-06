@@ -2,6 +2,7 @@
 import {
   ConflictException,
   Injectable,
+  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -12,11 +13,32 @@ import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
-export class UserService {
+export class UserService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
+
+  async onModuleInit() {
+    const adminExists = await this.userRepository.findOne({
+      where: { role: 'admin' },
+    });
+
+    if (!adminExists) {
+      console.log('Seed: Creating default admin...');
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+
+      const admin = this.userRepository.create({
+        email: 'admin@mail.com',
+        password: hashedPassword,
+        full_name: 'System Admin',
+        role: 'admin',
+      });
+
+      await this.userRepository.save(admin);
+      console.log('Seed: Admin created successfully!');
+    }
+  }
 
   async register(createUserDto: CreateUserDto) {
     const { email, password, full_name } = createUserDto;
@@ -60,5 +82,35 @@ export class UserService {
 
     // 3. Jika tidak cocok, lempar error umum
     throw new UnauthorizedException('Email atau password salah');
+  }
+
+  async findAll(): Promise<User[]> {
+    return await this.userRepository.find({
+      select: ['id', 'email', 'full_name', 'role'],
+    });
+  }
+
+  async findById(id: string): Promise<User | null> {
+    return await this.userRepository.findOne({
+      where: { id },
+      select: ['id', 'email', 'full_name', 'role', 'hashedRefreshToken'],
+    });
+  }
+
+  async setCurrentRefreshToken(refreshToken: string, userId: string) {
+    // 1. Hash refresh token sebelum disimpan
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+    // 2. Simpan ke database
+    await this.userRepository.update(userId, {
+      hashedRefreshToken: hashedRefreshToken,
+    });
+  }
+
+  async removeRefreshToken(userId: string) {
+    // Menghapus token (set ke null) saat logout
+    return this.userRepository.update(userId, {
+      hashedRefreshToken: null,
+    });
   }
 }

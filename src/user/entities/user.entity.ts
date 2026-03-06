@@ -24,4 +24,7 @@ export class User {
 
   @CreateDateColumn()
   created_at: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+  hashedRefreshToken?: string | null;
 }
